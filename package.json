@@ -1,0 +1,38 @@
+{
+  "name": "airtap-match-browsers",
+  "version": "0.0.0",
+  "description": "Match browsers in Airtap 4 format",
+  "license": "MIT",
+  "author": "Vincent Weevers",
+  "scripts": {
+    "test": "standard && node test"
+  },
+  "files": [
+    "index.js"
+  ],
+  "dependencies": {
+    "browser-names": "^1.0.1",
+    "deep-dot": "0.0.2",
+    "deep-equal": "^2.0.1",
+    "merge-deep": "^3.0.2"
+  },
+  "devDependencies": {
+    "standard": "^14.3.1",
+    "tape": "^4.13.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/airtap/match-browsers.git"
+  },
+  "homepage": "https://github.com/airtap/match-browsers",
+  "keywords": [
+    "airtap",
+    "browser",
+    "sauce",
+    "saucelabs",
+    "zuul"
+  ],
+  "engines": {
+    "node": ">=10"
+  }
+}
