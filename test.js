@@ -2,11 +2,11 @@
 
 const test = require('tape')
 const match = require('.')
-const sauceSpecs = require('./sauce-fixture.json')
+const sauce = require('./sauce-fixture.json')
 
-test('match sauce specs against sauce specs', function (t) {
-  const res = match(sauceSpecs, sauceSpecs)
-  t.same(res, sauceSpecs.map(normal).sort(cmpName))
+test('match sauce manifests against sauce manifests', function (t) {
+  const res = match(sauce, sauce)
+  t.same(res, sauce.map(normal).sort(cmpName))
   t.end()
 })
 
@@ -35,7 +35,7 @@ test('match by alias', function (t) {
   t.end()
 })
 
-test('removes exact duplicates (same spec, same options)', function (t) {
+test('removes exact duplicates (same manifest, same options)', function (t) {
   t.same(match([{ name: 'a' }], [
     { name: 'a' },
     { name: 'a' },
@@ -325,11 +325,11 @@ test('preferredOver: compares all in group against each other', function (t) {
   t.same(match(a, [{ name: 'a' }]), [normal(a[2])], 'without preferredOver')
 
   a[1].preferredOver = { foo: ['3'] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[1])], 'spec 1 over spec 2')
+  t.same(match(a, [{ name: 'a' }]), [normal(a[1])], 'manifest 1 over manifest 2')
   delete a[1].preferredOver
 
   a[0].preferredOver = { foo: ['3'] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[0])], 'spec 0 over spec 2')
+  t.same(match(a, [{ name: 'a' }]), [normal(a[0])], 'manifest 0 over manifest 2')
 
   t.end()
 })
@@ -374,7 +374,7 @@ test('preferredOver: specific value takes precedence over "any"', function (t) {
 })
 
 test('preferredOver: "android" 6 prefers Android GoogleAPI Emulator', function (t) {
-  const res = match(sauceSpecs, [{ name: 'android', version: '6' }])
+  const res = match(sauce, [{ name: 'android', version: '6' }])
   t.is(res.length, 1)
   t.is(res[0].version, '6.0')
   t.is(res[0].capabilities.appium.deviceName, 'Android GoogleAPI Emulator')
@@ -382,7 +382,7 @@ test('preferredOver: "android" 6 prefers Android GoogleAPI Emulator', function (
 })
 
 test('preferredOver: "and_chr" 6 prefers Android GoogleAPI Emulator', function (t) {
-  const res = match(sauceSpecs, [{ name: 'and_chr', version: '6' }])
+  const res = match(sauce, [{ name: 'and_chr', version: '6' }])
   t.is(res.length, 1)
   t.is(res[0].version, '6.0')
   t.is(res[0].capabilities.appium.deviceName, 'Android GoogleAPI Emulator')
@@ -390,7 +390,7 @@ test('preferredOver: "and_chr" 6 prefers Android GoogleAPI Emulator', function (
 })
 
 test('preferredOver: "and_chr" 10 prefers Android GoogleAPI Emulator', function (t) {
-  const res = match(sauceSpecs, [{ name: 'and_chr', version: '10' }])
+  const res = match(sauce, [{ name: 'and_chr', version: '10' }])
   t.is(res.length, 1)
   t.is(res[0].version, '10.0')
   t.is(res[0].capabilities.appium.deviceName, 'Android GoogleAPI Emulator')
@@ -398,7 +398,7 @@ test('preferredOver: "and_chr" 10 prefers Android GoogleAPI Emulator', function 
 })
 
 test('preferredOver: "and_chr" 10 with custom emulator', function (t) {
-  const res = match(sauceSpecs, [{
+  const res = match(sauce, [{
     name: 'and_chr',
     version: '10',
     capabilities: {
@@ -414,7 +414,7 @@ test('preferredOver: "and_chr" 10 with custom emulator', function (t) {
 })
 
 test('preferredOver: "ios_saf" 13 prefers iPhone Simulator', function (t) {
-  const res = match(sauceSpecs, [{ name: 'ios_saf', version: '13' }])
+  const res = match(sauce, [{ name: 'ios_saf', version: '13' }])
   t.is(res.length, 1)
   t.is(res[0].version, '13.0')
   t.is(res[0].capabilities.appium.deviceName, 'iPhone Simulator')
@@ -422,7 +422,7 @@ test('preferredOver: "ios_saf" 13 prefers iPhone Simulator', function (t) {
 })
 
 test('preferredOver: "ios_saf" 13 with custom simulator', function (t) {
-  const res = match(sauceSpecs, [{
+  const res = match(sauce, [{
     name: 'ios_saf',
     version: '13',
     capabilities: {
@@ -437,8 +437,8 @@ test('preferredOver: "ios_saf" 13 with custom simulator', function (t) {
   t.end()
 })
 
-function normal (spec) {
-  return { ...spec, options: {} }
+function normal (manifest) {
+  return { ...manifest, options: {} }
 }
 
 function cmpName (a, b) {

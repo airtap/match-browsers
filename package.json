@@ -1,7 +1,7 @@
 {
   "name": "airtap-match-browsers",
   "version": "0.0.1",
-  "description": "Match browsers in Airtap 4 format",
+  "description": "Match browser manifests to a desired set of browsers",
   "license": "MIT",
   "author": "Vincent Weevers",
   "scripts": {

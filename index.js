@@ -19,13 +19,13 @@ function matchAll (available, wanted) {
   const groups = new Map()
 
   // Group by name for faster matching
-  for (const spec of available) {
-    const name = lower(spec.name)
+  for (const manifest of available) {
+    const name = lower(manifest.name)
 
     if (groups.has(name)) {
-      groups.get(name).push(spec)
+      groups.get(name).push(manifest)
     } else {
-      groups.set(name, [spec])
+      groups.set(name, [manifest])
     }
   }
 
@@ -68,7 +68,7 @@ function matchAll (available, wanted) {
         }
       }
 
-      // Pick winner by preferredOver rules (or short of that, the last spec)
+      // Pick winner by preferredOver rules (or short of that, the last manifest)
       let winner = alternatives[alternatives.length - 1]
       let max = 0
 
@@ -91,10 +91,10 @@ function matchAll (available, wanted) {
         }
       }
 
-      // Don't merge options into the spec yet, so that we can
+      // Don't merge options into the manifest yet, so that we can
       // perform fast deduplication by object identity (below). We
       // assume that `available` itself doesn't contain duplicates.
-      matches.push({ spec: winner, options: w.options })
+      matches.push({ manifest: winner, options: w.options })
     }
   }
 
@@ -104,14 +104,14 @@ function matchAll (available, wanted) {
 
 function consolidate (matches) {
   for (let i = 0; i < matches.length; i++) {
-    const { spec, options } = matches[i]
+    const { manifest, options } = matches[i]
 
-    // Add user-provided options to spec
-    matches[i] = mergeDeep(spec, { options })
+    // Add user-provided options to manifest
+    matches[i] = mergeDeep(manifest, { options })
 
-    // Remove exact duplicates (same spec, same options)
+    // Remove exact duplicates (same manifest, same options)
     for (let j = i + 1; j < matches.length; j++) {
-      if (matches[j].spec === spec &&
+      if (matches[j].manifest === manifest &&
         deepEqual(matches[j].options, options, { strict: true })) {
         matches.splice(j--, 1)
       }
@@ -119,45 +119,45 @@ function consolidate (matches) {
   }
 }
 
-function explode (specs) {
-  for (let i = 0; i < specs.length; i++) {
-    const spec = specs[i]
+function explode (manifests) {
+  for (let i = 0; i < manifests.length; i++) {
+    const manifest = manifests[i]
 
     for (const k of ['version']) {
-      if (Array.isArray(spec[k])) {
-        specs.splice(i--, 1, ...spec[k].map(v => ({ ...spec, [k]: v })))
+      if (Array.isArray(manifest[k])) {
+        manifests.splice(i--, 1, ...manifest[k].map(v => ({ ...manifest, [k]: v })))
         break
       }
     }
   }
 }
 
-function withDefaults (spec) {
-  spec = { ...spec }
+function withDefaults (manifest) {
+  manifest = { ...manifest }
 
   for (const k in defaults) {
-    spec[k] = spec[k] || defaults[k]
+    manifest[k] = manifest[k] || defaults[k]
   }
 
-  if (typeof spec.name !== 'string' || spec.name === '') {
+  if (typeof manifest.name !== 'string' || manifest.name === '') {
     throw new TypeError('Browser "name" is required')
   }
 
-  spec.name = lower(spec.name)
-  spec.options = spec.options || {}
+  manifest.name = lower(manifest.name)
+  manifest.options = manifest.options || {}
 
   // For airtap < 4 compatibility
   // TODO: consider adding a shorthand "device" property for ipad & iphone
-  if (spec.name === 'iphone' || spec.name === 'ipad') {
-    const device = spec.name === 'iphone' ? 'iphone simulator' : 'ipad simulator'
-    const caps = spec.capabilities = { ...spec.capabilities }
+  if (manifest.name === 'iphone' || manifest.name === 'ipad') {
+    const device = manifest.name === 'iphone' ? 'iphone simulator' : 'ipad simulator'
+    const caps = manifest.capabilities = { ...manifest.capabilities }
     const appium = caps.appium = { ...caps.appium }
 
-    spec.name = 'ios_saf'
+    manifest.name = 'ios_saf'
     appium.deviceName = appium.deviceName || device
   }
 
-  return spec
+  return manifest
 }
 
 function preferredOver (a, b) {
@@ -190,6 +190,7 @@ function match (available, wanted, explicit, skip, key) {
   if (Array.isArray(available)) {
     return available.some(el => match(el, wanted, explicit, skip, key))
   } else if (Array.isArray(wanted)) {
+    // TODO: explode into multiple browsers, instead of this "oneof" behavior
     return wanted.some(el => match(available, el, explicit, skip, key))
   } else if (isObject(wanted)) {
     if (!isObject(available)) return false
@@ -230,37 +231,37 @@ function same (a, b, explicit) {
   return true
 }
 
-// Assumes specs are sorted by version.
-function filterVersions (specs, version) {
-  const [gte, lte] = range(version, specs)
+// Assumes manifests are sorted by version.
+function filterVersions (manifests, version) {
+  const [gte, lte] = range(version, manifests)
 
   let start = 0
-  let end = specs.length
+  let end = manifests.length
 
   if (gte) {
-    while (start < end && cmpVersion(specs[start].version, gte) < 0) {
+    while (start < end && cmpVersion(manifests[start].version, gte) < 0) {
       start++
     }
 
-    if (!matchVersion(gte, specs[start] && specs[start].version)) {
+    if (!matchVersion(gte, manifests[start] && manifests[start].version)) {
       throw new Error(`Version not found: ${gte}`)
     }
   }
 
   if (lte) {
-    while (end > start && cmpVersion(specs[end - 1].version, lte) > 0) {
+    while (end > start && cmpVersion(manifests[end - 1].version, lte) > 0) {
       end--
     }
 
-    if (!matchVersion(lte, specs[end - 1] && specs[end - 1].version)) {
+    if (!matchVersion(lte, manifests[end - 1] && manifests[end - 1].version)) {
       throw new Error(`Version not found: ${lte}`)
     }
   }
 
-  return specs.slice(start, end)
+  return manifests.slice(start, end)
 }
 
-function range (version, specs) {
+function range (version, manifests) {
   const arr = version.split('..')
 
   if (arr.length === 1) {
@@ -268,23 +269,23 @@ function range (version, specs) {
   }
 
   return arr.map(function (v) {
-    if (!specs.length) return
-    if (v === 'oldest') return specs[0].version
-    if (v === 'latest') return latest(specs, 0)
-    if (!isNaN(v) && v < 0) return latest(specs, v * -1)
+    if (!manifests.length) return
+    if (v === 'oldest') return manifests[0].version
+    if (v === 'latest') return latest(manifests, 0)
+    if (!isNaN(v) && v < 0) return latest(manifests, v * -1)
 
     return v
   })
 }
 
-function latest (specs, n) {
-  for (let i = specs.length - 1; i >= 0; i--) {
-    if (!isBeta(specs[i].version) && !n--) {
-      return specs[i].version
+function latest (manifests, n) {
+  for (let i = manifests.length - 1; i >= 0; i--) {
+    if (!isBeta(manifests[i].version) && !n--) {
+      return manifests[i].version
     }
   }
 
-  return specs[0].version
+  return manifests[0].version
 }
 
 function isBeta (version) {
