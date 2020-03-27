@@ -43,6 +43,7 @@ function matchAll (available, wanted) {
 
     // Match by name and version
     let group = groups.get(w.name) || []
+    w.version = lower(w.version)
     group = filterVersions(group, w.version)
 
     // Match by properties other than name and version
