@@ -41,14 +41,16 @@ function matchAll (available, wanted) {
   for (const w of wanted) {
     const explicit = new Set()
 
-    // Match by name and version
+    // Match by name
     let group = groups.get(w.name) || []
-    w.version = lower(w.version)
-    group = filterVersions(group, w.version)
 
-    // Match by properties other than name and version
+    // Match by other properties
     const skip = ['name', 'version']
     group = group.filter(m => match(m, w, explicit, skip))
+
+    // Match by version
+    w.version = lower(w.version)
+    group = filterVersions(group, w.version)
 
     if (group.length === 0) {
       throw new Error('Zero matches for ' + JSON.stringify(w, null, 2))
