@@ -427,30 +427,6 @@ test('unspecified object property, last manifest wins', function (t) {
   t.end()
 })
 
-test('"android" 6 uses Android GoogleAPI Emulator', function (t) {
-  const res = match(sauce, [{ name: 'android', version: '6' }])
-  t.is(res.length, 1)
-  t.is(res[0].version, '6.0')
-  t.is(res[0].capabilities.appium.deviceName, 'Android GoogleAPI Emulator')
-  t.end()
-})
-
-test('"and_chr" 6 uses Android GoogleAPI Emulator', function (t) {
-  const res = match(sauce, [{ name: 'and_chr', version: '6' }])
-  t.is(res.length, 1)
-  t.is(res[0].version, '6.0')
-  t.is(res[0].capabilities.appium.deviceName, 'Android GoogleAPI Emulator')
-  t.end()
-})
-
-test('"and_chr" 10 uses Android GoogleAPI Emulator', function (t) {
-  const res = match(sauce, [{ name: 'and_chr', version: '10' }])
-  t.is(res.length, 1)
-  t.is(res[0].version, '10.0')
-  t.is(res[0].capabilities.appium.deviceName, 'Android GoogleAPI Emulator')
-  t.end()
-})
-
 test('"and_chr" 10 with custom emulator', function (t) {
   const res = match(sauce, [{
     name: 'and_chr',
