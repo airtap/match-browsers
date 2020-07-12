@@ -3,12 +3,6 @@
 const test = require('tape')
 const match = require('.')
 const sauce = require('./sauce-fixture.json')
-
-// TODO: update fixture after patching airtap-sauce-browsers
-for (const manifest of sauce) {
-  delete manifest.preferredOver
-}
-
 const start = Date.now()
 
 process.on('exit', function () {
@@ -473,10 +467,10 @@ test('"and_chr" 10 with custom emulator', function (t) {
   t.end()
 })
 
-test('"ios_saf" 13 with custom simulator', function (t) {
+test('"ios_saf" 13.2 with custom simulator', function (t) {
   const res = match(sauce, [{
     name: 'ios_saf',
-    version: '13',
+    version: '13.2',
     capabilities: {
       appium: {
         deviceName: 'ipad simulator'
@@ -484,7 +478,7 @@ test('"ios_saf" 13 with custom simulator', function (t) {
     }
   }])
   t.is(res.length, 1)
-  t.is(res[0].version, '13.0')
+  t.is(res[0].version, '13.2')
   t.is(res[0].capabilities.appium.deviceName, 'iPad Simulator')
   t.end()
 })
