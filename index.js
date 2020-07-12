@@ -160,8 +160,10 @@ function match (available, wanted, explicit, skip, key) {
   if (Array.isArray(available)) {
     return available.some(el => match(el, wanted, explicit, skip, key))
   } else if (Array.isArray(wanted)) {
+    throw new Error('Array is not yet supported on ' + key)
+
     // TODO: explode into multiple browsers, instead of this "oneof" behavior
-    return wanted.some(el => match(available, el, explicit, skip, key))
+    // return wanted.some(el => match(available, el, explicit, skip, key))
   } else if (isObject(wanted)) {
     if (!isObject(available)) return false
 
