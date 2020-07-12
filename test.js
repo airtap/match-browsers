@@ -3,6 +3,11 @@
 const test = require('tape')
 const match = require('.')
 const sauce = require('./sauce-fixture.json')
+const start = Date.now()
+
+process.on('exit', function () {
+  console.error('Took %o ms', Date.now() - start)
+})
 
 test('match sauce manifests against sauce manifests', function (t) {
   const res = match(sauce, sauce)
@@ -119,8 +124,68 @@ test('match by version', function (t) {
     { name: 'a', version: '2.0', options: {} }
   ])
   t.throws(
-    () => match(a, [{ name: 'a', version: '2.1' }]), /^Error: Version not found/
+    () => match(a, [{ name: 'a', version: '2.1' }]), /^Error: Zero matches for/
   )
+  t.end()
+})
+
+test('matches version elements numerically', function (t) {
+  const a = [{ name: 'a', version: '10.0' }, { name: 'a', version: '2.0' }]
+
+  t.same(match(a, [{ name: 'a', version: '10.0' }]), [
+    { name: 'a', version: '10.0', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: '2.0' }]), [
+    { name: 'a', version: '2.0', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: 'oldest..latest' }]), [
+    { name: 'a', version: '2.0', options: {} },
+    { name: 'a', version: '10.0', options: {} }
+  ])
+  t.end()
+})
+
+test('match versions with different amount of elements', function (t) {
+  const a = [{ name: 'a', version: '11.00.4.9' }, { name: 'a', version: '11' }]
+
+  t.same(match(a, [{ name: 'a' }]), [
+    { name: 'a', version: '11.00.4.9', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: '11' }]), [
+    // TODO: does this make sense, compared to "version: latest" behavior?
+    { name: 'a', version: '11', options: {} },
+    { name: 'a', version: '11.00.4.9', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: '11.0' }]), [
+    { name: 'a', version: '11.00.4.9', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: '11.00' }]), [
+    { name: 'a', version: '11.00.4.9', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: '11.00.4.9' }]), [
+    { name: 'a', version: '11.00.4.9', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: '11.0.4.9' }]), [
+    { name: 'a', version: '11.00.4.9', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: '11.0.4' }]), [
+    { name: 'a', version: '11.00.4.9', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: '11.00.4' }]), [
+    { name: 'a', version: '11.00.4.9', options: {} }
+  ])
+  t.end()
+})
+
+test('takes latest of versions with 4 elements', function (t) {
+  const a = [
+    { name: 'ie', version: '11.00.18362.890' },
+    { name: 'ie', version: '11.00.18362.1' }
+  ]
+
+  t.same(match(a, [{ name: 'ie' }]), [
+    { name: 'ie', version: '11.00.18362.890', options: {} }
+  ])
   t.end()
 })
 
@@ -141,11 +206,11 @@ test('throws if a version is not found', function (t) {
 
   t.throws(
     () => match(a, [{ name: 'a', version: '2.0' }]),
-    /^Error: Version not found/
+    /^Error: Zero matches for/
   )
   t.throws(
     () => match(a, [{ name: 'a', version: ['1.0', '2.0'] }]),
-    /^Error: Version not found/
+    /^Error: Zero matches for/
   )
   t.end()
 })
@@ -194,17 +259,14 @@ test('match version range', function (t) {
   t.same(match(a, [{ name: 'a', version: '..2.0' }]), a.slice(0, 2).map(normal))
   t.same(match(a, [{ name: 'a', version: '2.0..3.0' }]), a.slice(1).map(normal))
   t.same(match(a, [{ name: 'a', version: '3.0..3.0' }]), a.slice(-1).map(normal))
-  t.throws(
-    () => match(a, [{ name: 'a', version: '0.0..3.0' }]),
-    /^Error: Version not found: 0\.0/
-  )
+  t.same(match(a, [{ name: 'a', version: '0.0..3.0' }]), a.map(normal))
 
   t.end()
 })
 
 test('throws if version range matches nothing', function (t) {
   const a = [{ name: 'a', version: '3.0' }]
-  t.throws(() => match(a, [{ name: 'a', version: '1.0..2.0' }]), /^Error: Version not found/)
+  t.throws(() => match(a, [{ name: 'a', version: '1.0..2.0' }]), /^Error: Zero matches for/)
   t.end()
 })
 
@@ -218,7 +280,7 @@ test('match version range "oldest..latest"', function (t) {
   t.same(match(a, [{ name: 'a', version: 'oldest..latest' }]), a.map(normal))
   t.same(match(a, [{ name: 'a', version: 'oldest..' }]), a.map(normal))
   t.same(match(a, [{ name: 'a', version: '..latest' }]), a.map(normal))
-  // t.throws(() => match(a, [{ name: 'a', version: 'latest..oldest' }]), /^Error: Zero matches/)
+  t.throws(() => match(a, [{ name: 'a', version: 'latest..oldest' }]), /^Error: Zero matches for/)
   t.end()
 })
 
@@ -247,7 +309,77 @@ test('match string versions', function (t) {
   t.same(match(a, [{ name: 'a', version: 'latest..beta' }]), a.slice(-2).map(normal))
   t.same(match(a, [{ name: 'a', version: 'oldest..beta' }]), a.map(normal))
   t.same(match(a, [{ name: 'a', version: 'oldest..latest' }]), a.slice(0, -1).map(normal))
-  t.throws(() => match(a, [{ name: 'a', version: 'dev' }]), /^Error: Version not found: dev/)
+  t.throws(() => match(a, [{ name: 'a', version: 'dev' }]), /^Error: Zero matches for/)
+  t.end()
+})
+
+test('match missing version', function (t) {
+  const a1 = [
+    { name: 'a', version: '1.0' },
+    { name: 'a', version: '2.0' },
+    { name: 'a', version: 'beta' },
+    { name: 'a' }
+  ]
+
+  t.same(match(a1, [{ name: 'a', version: 'beta' }]), a1.slice(2, 3).map(normal))
+  t.same(match(a1, [{ name: 'a', version: 'beta..beta' }]), a1.slice(2, 3).map(normal))
+  t.same(match(a1, [{ name: 'a', version: 'latest..beta' }]), a1.slice(1, 3).map(normal))
+  t.same(match(a1, [{ name: 'a', version: 'oldest..beta' }]), a1.slice(0, -1).map(normal))
+  t.throws(() => match(a1, [{ name: 'a', version: 'dev' }]), /^Error: Zero matches for/)
+
+  const a2 = [{ name: 'a' }]
+
+  t.same(match(a2, [{ name: 'a' }]), a2.map(normal))
+  t.throws(() => match(a2, [{ name: 'a', version: 'beta' }]), /^Error: Zero matches for/)
+  t.throws(() => match(a2, [{ name: 'a', version: 'dev' }]), /^Error: Zero matches for/)
+
+  const a3 = [{ name: 'a', version: 'beta' }]
+
+  t.same(match(a3, [{ name: 'a' }]), a3.map(normal))
+  t.same(match(a3, [{ name: 'a', version: 'beta' }]), a3.map(normal))
+  t.throws(() => match(a3, [{ name: 'a', version: 'dev' }]), /^Error: Zero matches for/)
+
+  t.end()
+})
+
+test('match firefox versions', function (t) {
+  const a1 = [
+    { name: 'firefox', version: '78.0.1' },
+    { name: 'firefox', version: '79.0' },
+    { name: 'firefox', version: '80.0a1' } // nightly, should not match latest
+  ]
+
+  t.same(match(a1, [{ name: 'firefox', version: 'oldest' }]), [a1[0]].map(normal))
+  t.same(match(a1, [{ name: 'firefox', version: 'latest' }]), [a1[1]].map(normal))
+  t.same(match(a1, [{ name: 'firefox', version: '80.0a1' }]), [a1[2]].map(normal))
+
+  const a2 = [
+    { name: 'firefox', version: '80.1a1' },
+    { name: 'firefox', version: '80.2a1' }
+  ]
+
+  t.same(match(a2, [{ name: 'firefox' }]), [
+    { name: 'firefox', version: '80.2a1', options: {} }
+  ], 'no stable versions available, return last prerelease')
+
+  t.same(match(a2, [{ name: 'firefox', version: '80.2a1' }]), [
+    { name: 'firefox', version: '80.2a1', options: {} }
+  ], 'exact match')
+
+  t.same(match(a2, [{ name: 'firefox', version: '80.1a1' }]), [
+    { name: 'firefox', version: '80.1a1', options: {} }
+  ], 'exact match')
+
+  t.throws(
+    () => match(a2, [{ name: 'firefox', version: '80' }]), /^Error: Zero matches for/,
+    'prerelease must be specified exactly'
+  )
+
+  t.throws(
+    () => match(a2, [{ name: 'firefox', version: '80.0' }]), /^Error: Zero matches for/,
+    'prerelease must be specified exactly'
+  )
+
   t.end()
 })
 

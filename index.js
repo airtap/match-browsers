@@ -5,7 +5,10 @@ const mergeDeep = require('merge-deep')
 const deepEqual = require('deep-equal')
 const deep = require('deep-dot')
 const names = require('browser-names')
+
 const defaults = { version: 'latest' }
+const prerelease = /[^\d.]/
+const numeric = /^\d+$/
 
 module.exports = matchAll
 
@@ -142,7 +145,7 @@ function withDefaults (manifest) {
   }
 
   if (typeof manifest.name !== 'string' || manifest.name === '') {
-    throw new TypeError('Browser "name" is required')
+    throw new TypeError('Manifest "name" is required')
   }
 
   manifest.name = lower(manifest.name)
@@ -235,80 +238,109 @@ function same (a, b, explicit) {
 
 // Assumes manifests are sorted by version.
 function filterVersions (manifests, version) {
-  const [gte, lte] = range(version, manifests)
+  if (manifests.length === 0) {
+    return manifests
+  }
 
-  let start = 0
-  let end = manifests.length
+  const test = range(version, manifests)
+  const result = []
 
-  if (gte) {
-    while (start < end && cmpVersion(manifests[start].version, gte) < 0) {
-      start++
-    }
-
-    if (!matchVersion(gte, manifests[start] && manifests[start].version)) {
-      throw new Error(`Version not found: ${gte}`)
+  for (const m of manifests) {
+    if (test(m.version)) {
+      result.push(m)
+    } else if (result.length) {
+      break
     }
   }
 
-  if (lte) {
-    while (end > start && cmpVersion(manifests[end - 1].version, lte) > 0) {
-      end--
-    }
-
-    if (!matchVersion(lte, manifests[end - 1] && manifests[end - 1].version)) {
-      throw new Error(`Version not found: ${lte}`)
-    }
-  }
-
-  return manifests.slice(start, end)
+  return result
 }
 
+// Assumes manifests are sorted by version.
 function range (version, manifests) {
-  const arr = version.split('..')
+  let gte
+  let lte
 
-  if (arr.length === 1) {
-    arr.push(arr[0])
+  if (version.indexOf('..') === -1) {
+    gte = lte = resolve(version || 'latest')
+  } else {
+    const arr = version.split('..')
+
+    gte = resolve(arr[0] || 'oldest')
+    lte = resolve(arr[1] || 'latest')
   }
 
-  return arr.map(function (v) {
-    if (!manifests.length) return
+  return function test (v) {
+    const c1 = cmpRange(v, gte, false)
+    if (c1 < 0) return false
+
+    const c2 = cmpRange(v, lte, true)
+    if (c2 > 0) return false
+
+    return true
+  }
+
+  function resolve (v) {
     if (v === 'oldest') return manifests[0].version
     if (v === 'latest') return latest(manifests, 0)
-    if (!isNaN(v) && v < 0) return latest(manifests, v * -1)
+    if (/^-\d+$/.test(v) && v < 0) return latest(manifests, v * -1)
 
     return v
-  })
+  }
 }
 
 function latest (manifests, n) {
   for (let i = manifests.length - 1; i >= 0; i--) {
-    if (!isBeta(manifests[i].version) && !n--) {
+    if (!isPrerelease(manifests[i].version) && (!n-- || i === 0)) {
       return manifests[i].version
     }
   }
 
-  return manifests[0].version
+  // All are prereleases, return the last
+  return manifests[manifests.length - 1].version
 }
 
-function isBeta (version) {
-  return version && isNaN(version)
-}
-
-function matchVersion (wanted, available) {
-  if (!available) return false
-  if (isBeta(available)) return available === wanted
-
-  return available.startsWith(wanted)
+function isPrerelease (version) {
+  return !version || prerelease.test(version)
 }
 
 function cmpVersion (a, b) {
-  if (a == null) return b == null ? 0 : 1
-  if (b == null) return -1
+  return cmpRange(a, b, false)
+}
 
-  if (isNaN(a)) return isNaN(b) ? a.localeCompare(b) : 1
-  if (isNaN(b)) return -1
+function cmpRange (a, b, prefixOnly) {
+  // Missing version behaves like last prerelease
+  if (!a) return !b ? 0 : 1
+  if (!b) return -1
 
-  return Number(a) - Number(b)
+  const ap = isPrerelease(a)
+  const bp = isPrerelease(b)
+
+  if (ap !== bp) return ap ? 1 : -1
+
+  const av = a.split('.')
+  const bv = b.split('.')
+
+  for (let i = 0; i < Math.min(av.length, bv.length); i++) {
+    const cmp = cmpElement(av[i], bv[i])
+
+    if (cmp > 0) return 1
+    if (cmp < 0) return -1
+  }
+
+  if (prefixOnly || av.length === bv.length) {
+    return 0
+  } else {
+    return av.length > bv.length ? 1 : -1
+  }
+}
+
+function cmpElement (a, b) {
+  if (numeric.test(a) && numeric.test(b)) {
+    return a - b
+  } else {
+    return a.localeCompare(b)
+  }
 }
 
 function isObject (o) {

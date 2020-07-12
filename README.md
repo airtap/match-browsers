@@ -1,7 +1,7 @@
 # airtap-match-browsers
 
 > **Match [browser manifests](https://github.com/airtap/browser-manifest) to a desired set of browsers.**  
-> Intended to replace [`sauce-browsers`](https://github.com/lpinca/sauce-browsers) in conjunction with [`airtap-sauce-browsers`](https://github.com/airtap/sauce-browsers).
+> Replaces [`sauce-browsers`](https://github.com/lpinca/sauce-browsers) in conjunction with [`airtap-sauce-browsers`](https://github.com/airtap/sauce-browsers).
 
 [![npm status](http://img.shields.io/npm/v/airtap-match-browsers.svg)](https://www.npmjs.org/package/airtap-match-browsers)
 [![node](https://img.shields.io/node/v/airtap-match-browsers.svg)](https://www.npmjs.org/package/airtap-match-browsers)
@@ -42,10 +42,10 @@ Defaults to "latest". Supported forms (compatible with Zuul & Airtap):
 - A keyword, one of "oldest" (first version) or "latest" (last numeric version).
 - A range in the form of `<start>..<end>`, where `start` and `end` are either a version or a keyword. This will result in one or more matches.
 - A negative range in the form of `-<n>..latest`, for example `-1..latest` which means the last 2 numeric versions.
-- A non-numeric version like "dev" and "beta". Such versions sort after numeric versions, so that `oldest..latest` excludes "dev" and `latest..dev` includes latest, "beta" and "dev".
+- A prerelease version like "dev", "beta", "80.0a1". Such versions sort after numeric versions, so that `oldest..latest` excludes "dev" and `latest..dev` includes e.g. latest, "beta" and "dev".
 - An array of versions.
 
-If a version is not found (including the start and end of ranges) an error is thrown.
+If a manifest doesn't have a `version`, it behaves like a prerelease.
 
 ### `platform` and any other (nested) property
 
