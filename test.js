@@ -3,6 +3,12 @@
 const test = require('tape')
 const match = require('.')
 const sauce = require('./sauce-fixture.json')
+
+// TODO: update fixture after patching airtap-sauce-browsers
+for (const manifest of sauce) {
+  delete manifest.preferredOver
+}
+
 const start = Date.now()
 
 process.on('exit', function () {
@@ -406,106 +412,28 @@ test('sorts results by version', function (t) {
   t.end()
 })
 
-test('preferredOver: basic', function (t) {
-  const a = [
-    { name: 'a' },
-    { name: 'a', foo: { bar: 2, baz: 'abc' } }
-  ]
-
-  t.same(match(a, [{ name: 'a' }]), [normal(a[1])], 'without preferredOver')
-
-  a[0].preferredOver = { 'foo.bar': [2] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[0])], 'preferredOver matches single value')
-
-  a[0].preferredOver = { 'foo.bar': [2, 3] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[0])], 'preferredOver matches one of values')
-
-  a[0].preferredOver = { 'foo.baz': ['ABc'] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[0])], 'matching is case-insensitive')
-
-  a[0].preferredOver = { 'foo.bar': ['2'] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[0])], 'matching is loosely typed')
-
-  a[0].preferredOver = { 'foo.bar': ['any'] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[0])], '"any" matches primitive')
-
-  a[0].preferredOver = { foo: ['any'] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[0])], '"any" matches object')
-
-  a[0].preferredOver = { nope: ['any'] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[1])], '"any" matches only if property exists')
-
-  a[0].preferredOver = { 'foo.bar': [3] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[1])], 'does not apply if value is not found')
-
-  a[0].preferredOver = { 'foo.bar': [2] }
-  t.same(match(a, [{ name: 'a', foo: { bar: 2 } }]), [normal(a[1])], 'does not apply if explicitly matched')
-
-  a[0].preferredOver = { 'foo.bar': ['any'] }
-  t.same(match(a, [{ name: 'a', foo: { bar: 2 } }]), [normal(a[1])], '"any" does not apply if explicitly matched')
-
-  t.end()
-})
-
-test('preferredOver: compares all in group against each other', function (t) {
+test('unspecified primitive property, last manifest wins', function (t) {
   const a = [
     { name: 'a', foo: '1' },
     { name: 'a', foo: '2' },
     { name: 'a', foo: '3' }
   ]
 
-  t.same(match(a, [{ name: 'a' }]), [normal(a[2])], 'without preferredOver')
-
-  a[1].preferredOver = { foo: ['3'] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[1])], 'manifest 1 over manifest 2')
-  delete a[1].preferredOver
-
-  a[0].preferredOver = { foo: ['3'] }
-  t.same(match(a, [{ name: 'a' }]), [normal(a[0])], 'manifest 0 over manifest 2')
-
-  t.end()
-})
-
-// Not sure if this makes sense.
-test.skip('preferredOver: does not apply if other property is not referenced', function (t) {
-  const a = [
-    { name: 'a', foo: '1', one: 'one' },
-    { name: 'a', foo: '2', preferredOver: { one: ['one'] } },
-    { name: 'a', foo: '3', two: 'two' }
-  ]
-
   t.same(match(a, [{ name: 'a' }]), [normal(a[2])])
-
-  const b = [
-    { name: 'a', foo: '1', one: 'one' },
-    { name: 'a', foo: '2', preferredOver: { one: ['one'], two: ['two'] } },
-    { name: 'a', foo: '3', two: 'two' }
-  ]
-
-  t.same(match(b, [{ name: 'a' }]), [normal(b[1])])
   t.end()
 })
 
-test('preferredOver: specific value takes precedence over "any"', function (t) {
+test('unspecified object property, last manifest wins', function (t) {
   const a = [
-    { name: 'a', foo: '1', one: 'one', preferredOver: { two: ['two'] } },
-    { name: 'a', foo: '2', preferredOver: { one: ['any'] } },
-    { name: 'a', foo: '3', two: 'two' }
+    { name: 'a' },
+    { name: 'a', foo: { bar: 2, baz: 'abc' } }
   ]
 
-  t.same(match(a, [{ name: 'a' }]), [normal(a[0])])
-
-  const b = [
-    { name: 'a', foo: '1', one: 'one', preferredOver: { two: ['any'] } },
-    { name: 'a', foo: '2', preferredOver: { two: ['two'] } },
-    { name: 'a', foo: '3', two: 'two' }
-  ]
-
-  t.same(match(b, [{ name: 'a' }]), [normal(b[1])])
+  t.same(match(a, [{ name: 'a' }]), [normal(a[1])])
   t.end()
 })
 
-test('preferredOver: "android" 6 prefers Android GoogleAPI Emulator', function (t) {
+test('"android" 6 uses Android GoogleAPI Emulator', function (t) {
   const res = match(sauce, [{ name: 'android', version: '6' }])
   t.is(res.length, 1)
   t.is(res[0].version, '6.0')
@@ -513,7 +441,7 @@ test('preferredOver: "android" 6 prefers Android GoogleAPI Emulator', function (
   t.end()
 })
 
-test('preferredOver: "and_chr" 6 prefers Android GoogleAPI Emulator', function (t) {
+test('"and_chr" 6 uses Android GoogleAPI Emulator', function (t) {
   const res = match(sauce, [{ name: 'and_chr', version: '6' }])
   t.is(res.length, 1)
   t.is(res[0].version, '6.0')
@@ -521,7 +449,7 @@ test('preferredOver: "and_chr" 6 prefers Android GoogleAPI Emulator', function (
   t.end()
 })
 
-test('preferredOver: "and_chr" 10 prefers Android GoogleAPI Emulator', function (t) {
+test('"and_chr" 10 uses Android GoogleAPI Emulator', function (t) {
   const res = match(sauce, [{ name: 'and_chr', version: '10' }])
   t.is(res.length, 1)
   t.is(res[0].version, '10.0')
@@ -529,7 +457,7 @@ test('preferredOver: "and_chr" 10 prefers Android GoogleAPI Emulator', function 
   t.end()
 })
 
-test('preferredOver: "and_chr" 10 with custom emulator', function (t) {
+test('"and_chr" 10 with custom emulator', function (t) {
   const res = match(sauce, [{
     name: 'and_chr',
     version: '10',
@@ -545,15 +473,7 @@ test('preferredOver: "and_chr" 10 with custom emulator', function (t) {
   t.end()
 })
 
-test('preferredOver: "ios_saf" 13 prefers iPhone Simulator', function (t) {
-  const res = match(sauce, [{ name: 'ios_saf', version: '13' }])
-  t.is(res.length, 1)
-  t.is(res[0].version, '13.0')
-  t.is(res[0].capabilities.appium.deviceName, 'iPhone Simulator')
-  t.end()
-})
-
-test('preferredOver: "ios_saf" 13 with custom simulator', function (t) {
+test('"ios_saf" 13 with custom simulator', function (t) {
   const res = match(sauce, [{
     name: 'ios_saf',
     version: '13',

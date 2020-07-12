@@ -23,7 +23,7 @@ function matchAll (available, wanted) {
 
   // Group by name for faster matching
   for (const manifest of available) {
-    const name = lower(manifest.name)
+    const name = manifest.name
 
     if (groups.has(name)) {
       groups.get(name).push(manifest)
@@ -32,20 +32,17 @@ function matchAll (available, wanted) {
     }
   }
 
-  // Presort versions and add aliases
-  for (const [name, group] of groups) {
-    group.sort((a, b) => cmpVersion(a.version, b.version))
-
-    for (const alias of names(name)) {
-      if (alias !== name) groups.set(alias, group)
-    }
-  }
-
   for (const w of wanted) {
     const explicit = new Set()
 
     // Match by name
-    let group = groups.get(w.name) || []
+    let group = findName(groups, w.name) || []
+
+    // Lazily sort by version
+    if (!group.sorted) {
+      group.sort((a, b) => cmpVersion(a.version, b.version))
+      group.sorted = true
+    }
 
     // Match by other properties
     const skip = ['name', 'version']
@@ -62,37 +59,15 @@ function matchAll (available, wanted) {
     // Deduplicate by properties we didn't explicitly match
     for (let i = 0; i < group.length; i++) {
       const a = group[i]
-      const alternatives = [a]
+      let winner = a
 
       for (let j = i + 1; j < group.length; j++) {
         const b = group[j]
 
         if (same(a, b, explicit)) {
-          alternatives.push(b)
+          // Last manifest wins (for no particular reason)
+          winner = b
           group.splice(j--, 1)
-        }
-      }
-
-      // Pick winner by preferredOver rules (or short of that, the last manifest)
-      let winner = alternatives[alternatives.length - 1]
-      let max = 0
-
-      // TODO: optimize by merging logic into above loop
-      // TODO: find a simpler solution to deduplication overall
-      for (let x = 0; x < alternatives.length; x++) {
-        for (let y = x + 1; y < alternatives.length; y++) {
-          const weightX = preferredOver(alternatives[x], alternatives[y])
-          const weightY = preferredOver(alternatives[y], alternatives[x])
-
-          if (weightX > max) {
-            max = weightX
-            winner = alternatives[x]
-          }
-
-          if (weightY > max) {
-            max = weightY
-            winner = alternatives[y]
-          }
         }
       }
 
@@ -105,6 +80,18 @@ function matchAll (available, wanted) {
 
   consolidate(matches)
   return matches
+}
+
+function findName (groups, name) {
+  if (groups.has(name)) {
+    return groups.get(name)
+  }
+
+  for (const alias of names(name)) {
+    if (alias !== name && groups.has(alias)) {
+      return groups.get(alias)
+    }
+  }
 }
 
 function consolidate (matches) {
@@ -165,28 +152,6 @@ function withDefaults (manifest) {
   return manifest
 }
 
-function preferredOver (a, b) {
-  let weight = 0
-
-  if (a.preferredOver) {
-    for (const k of Object.keys(a.preferredOver)) {
-      const values = a.preferredOver[k].map(lower)
-      const value = deep(b, k)
-
-      if (value == null) {
-        continue
-      } else if (values.includes(lower(value))) {
-        // A specific value has more weight than "any"
-        weight += 1e3
-      } else if (values.includes('any')) {
-        weight += 1
-      }
-    }
-  }
-
-  return weight
-}
-
 function lower (value) {
   return value != null ? String(value).toLowerCase() : ''
 }
@@ -204,7 +169,7 @@ function match (available, wanted, explicit, skip, key) {
       const fqk = key ? key + '.' + k : k
 
       if (!hasOwnProperty.call(wanted, k)) continue
-      if (fqk === 'options' || fqk === 'preferredOver') continue
+      if (fqk === 'options') continue
       if (!match(available[k], wanted[k], explicit, skip, fqk)) return false
     }
 
