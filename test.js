@@ -9,11 +9,23 @@ process.on('exit', function () {
   console.error('Took %o ms', Date.now() - start)
 })
 
-test('match sauce manifests against sauce manifests', function (t) {
+test('includes browsers that need secure env vars', simulateSecureEnv(function (t) {
+  const a = [{ name: 'a', wants: { secureEnv: true } }, { name: 'b' }]
+  t.same(match(a, [{ name: 'a' }, { name: 'b' }]), a.map(normal))
+  t.end()
+}))
+
+test('excludes browsers that need secure env vars', simulateSecureEnv(function (t) {
+  const a = [{ name: 'a', wants: { secureEnv: true } }, { name: 'b' }]
+  t.same(match(a, [{ name: 'a' }, { name: 'b' }]), a.slice(1).map(normal))
+  t.end()
+}, false))
+
+test('match sauce manifests against sauce manifests', simulateSecureEnv(function (t) {
   const res = match(sauce, sauce)
   t.same(res, sauce.map(normal).sort(cmpName))
   t.end()
-})
+}))
 
 test('matching against nothing throws error', function (t) {
   t.same(match([], []), [])
@@ -427,7 +439,7 @@ test('unspecified object property, last manifest wins', function (t) {
   t.end()
 })
 
-test('"and_chr" 10 with custom emulator', function (t) {
+test('"and_chr" 10 with custom emulator', simulateSecureEnv(function (t) {
   const res = match(sauce, [{
     name: 'and_chr',
     version: '10',
@@ -441,9 +453,9 @@ test('"and_chr" 10 with custom emulator', function (t) {
   t.is(res[0].version, '10.0')
   t.is(res[0].capabilities.appium.deviceName, 'Google Pixel 3a GoogleAPI Emulator')
   t.end()
-})
+}))
 
-test('"ios_saf" 13.2 with custom simulator', function (t) {
+test('"ios_saf" 13.2 with custom simulator', simulateSecureEnv(function (t) {
   const res = match(sauce, [{
     name: 'ios_saf',
     version: '13.2',
@@ -457,7 +469,19 @@ test('"ios_saf" 13.2 with custom simulator', function (t) {
   t.is(res[0].version, '13.2')
   t.is(res[0].capabilities.appium.deviceName, 'iPad Simulator')
   t.end()
-})
+}))
+
+function simulateSecureEnv (test, secure) {
+  return function wrapped (t) {
+    process.env.AIRTAP_IS_SECURE_ENV = String(secure !== false)
+    t.once('end', resetEnv)
+    test(t)
+  }
+}
+
+function resetEnv () {
+  process.env.AIRTAP_IS_SECURE_ENV = ''
+}
 
 function normal (manifest) {
   return { ...manifest, options: {} }

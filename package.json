@@ -5,7 +5,7 @@
   "license": "MIT",
   "author": "Vincent Weevers",
   "scripts": {
-    "test": "standard && node test"
+    "test": "standard && nyc node test"
   },
   "files": [
     "index.js"
@@ -14,9 +14,11 @@
     "browser-names": "^1.0.1",
     "deep-dot": "0.0.2",
     "deep-equal": "^2.0.1",
+    "is-fork-pr": "^2.5.0",
     "merge-deep": "^3.0.2"
   },
   "devDependencies": {
+    "nyc": "^15.1.0",
     "standard": "^14.3.1",
     "tape": "^4.13.0"
   },

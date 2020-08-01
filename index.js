@@ -5,6 +5,7 @@ const mergeDeep = require('merge-deep')
 const deepEqual = require('deep-equal')
 const deep = require('deep-dot')
 const names = require('browser-names')
+const isForkPr = require('is-fork-pr').isForkPr
 
 const defaults = { version: 'latest' }
 const prerelease = /[^\d.]/
@@ -95,8 +96,19 @@ function findName (groups, name) {
 }
 
 function consolidate (matches) {
+  const insecure = insecureEnv()
+
   for (let i = 0; i < matches.length; i++) {
     const { manifest, options } = matches[i]
+
+    // Skip browsers that need secure environment variables and are therefore
+    // not available on pull requests from forks. Done here (after matching)
+    // so that the order of precedence between browsers is consistent in
+    // secure and insecure envs. Could reconsider that; needs a discussion.
+    if (insecure && manifest.wants && manifest.wants.secureEnv) {
+      matches.splice(i--, 1)
+      continue
+    }
 
     // Add user-provided options to manifest
     matches[i] = mergeDeep(manifest, { options })
@@ -308,6 +320,19 @@ function cmpElement (a, b) {
   } else {
     return a.localeCompare(b)
   }
+}
+
+function insecureEnv () {
+  if (process.env.AIRTAP_IS_SECURE_ENV) {
+    return process.env.AIRTAP_IS_SECURE_ENV === 'false'
+  }
+
+  if (process.env.CI) {
+    if (isForkPr()) return true
+    if (process.env.TRAVIS_SECURE_ENV_VARS === 'false') return true
+  }
+
+  return false
 }
 
 function isObject (o) {
