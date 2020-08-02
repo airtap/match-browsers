@@ -16,9 +16,8 @@ function matchAll (available, wanted) {
   const matches = []
   const eqlOptions = { strict: true }
 
-  for (let w of wanted) {
-    w = normalize(w)
-
+  for (const original of wanted) {
+    const w = normalize(original)
     const explicit = new Set(['version'])
 
     // Match by properties other than version
@@ -29,7 +28,7 @@ function matchAll (available, wanted) {
     group = filterVersions(group, w.version || 'latest')
 
     if (group.length === 0) {
-      throw new Error('Zero matches for ' + JSON.stringify(w, null, 2))
+      throw new NotFoundError(original)
     }
 
     // Deduplicate by properties we didn't explicitly match
@@ -275,4 +274,15 @@ function insecureEnv () {
 
 function isObject (o) {
   return typeof o === 'object' && o !== null && !Array.isArray(o)
+}
+
+class NotFoundError extends Error {
+  constructor (input) {
+    super('No matching manifest found')
+
+    Object.defineProperty(this, 'name', { value: 'NotFoundError' })
+    Object.defineProperty(this, 'code', { value: 'ERR_MANIFEST_NOT_FOUND' })
+    Object.defineProperty(this, 'expected', { value: true })
+    Object.defineProperty(this, 'input', { value: input })
+  }
 }

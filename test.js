@@ -29,7 +29,7 @@ test('match sauce manifests against sauce manifests', simulateSecureEnv(function
 
 test('matching against nothing throws error', function (t) {
   t.same(match([], []), [])
-  t.throws(() => match([], [{ name: 'x' }]), /^Error: Zero matches/)
+  t.throws(() => match([], [{ name: 'x' }]), /^NotFoundError/)
   t.end()
 })
 
@@ -110,7 +110,7 @@ test('match by custom property', function (t) {
   const a = [{ name: 'a', x: 1 }, { name: 'a', x: 2 }]
 
   t.same(match(a, [{ name: 'a', x: 2 }]), [{ name: 'a', x: 2, options: {} }])
-  t.throws(() => match(a, [{ name: 'a', x: 0 }]), /^Error: Zero matches/)
+  t.throws(() => match(a, [{ name: 'a', x: 0 }]), /^NotFoundError/)
   t.end()
 })
 
@@ -138,7 +138,7 @@ test('match by version', function (t) {
     { name: 'a', version: '2.0', options: {} }
   ])
   t.throws(
-    () => match(a, [{ name: 'a', version: '2.1' }]), /^Error: Zero matches for/
+    () => match(a, [{ name: 'a', version: '2.1' }]), /^NotFoundError/
   )
   t.end()
 })
@@ -230,7 +230,7 @@ test('throws if a version is not found', function (t) {
 
   t.throws(
     () => match(a, [{ name: 'a', version: '2.0' }]),
-    /^Error: Zero matches for/
+    /^NotFoundError/
   )
   t.end()
 })
@@ -286,7 +286,7 @@ test('match version range', function (t) {
 
 test('throws if version range matches nothing', function (t) {
   const a = [{ name: 'a', version: '3.0' }]
-  t.throws(() => match(a, [{ name: 'a', version: '1.0..2.0' }]), /^Error: Zero matches for/)
+  t.throws(() => match(a, [{ name: 'a', version: '1.0..2.0' }]), /^NotFoundError/)
   t.end()
 })
 
@@ -300,7 +300,7 @@ test('match version range "oldest..latest"', function (t) {
   t.same(match(a, [{ name: 'a', version: 'oldest..latest' }]), a.map(normal))
   t.same(match(a, [{ name: 'a', version: 'oldest..' }]), a.map(normal))
   t.same(match(a, [{ name: 'a', version: '..latest' }]), a.map(normal))
-  t.throws(() => match(a, [{ name: 'a', version: 'latest..oldest' }]), /^Error: Zero matches for/)
+  t.throws(() => match(a, [{ name: 'a', version: 'latest..oldest' }]), /^NotFoundError/)
   t.end()
 })
 
@@ -329,7 +329,7 @@ test('match string versions', function (t) {
   t.same(match(a, [{ name: 'a', version: 'latest..beta' }]), a.slice(-2).map(normal))
   t.same(match(a, [{ name: 'a', version: 'oldest..beta' }]), a.map(normal))
   t.same(match(a, [{ name: 'a', version: 'oldest..latest' }]), a.slice(0, -1).map(normal))
-  t.throws(() => match(a, [{ name: 'a', version: 'dev' }]), /^Error: Zero matches for/)
+  t.throws(() => match(a, [{ name: 'a', version: 'dev' }]), /^NotFoundError/)
   t.end()
 })
 
@@ -345,19 +345,19 @@ test('match missing version', function (t) {
   t.same(match(a1, [{ name: 'a', version: 'beta..beta' }]), a1.slice(2, 3).map(normal))
   t.same(match(a1, [{ name: 'a', version: 'latest..beta' }]), a1.slice(1, 3).map(normal))
   t.same(match(a1, [{ name: 'a', version: 'oldest..beta' }]), a1.slice(0, -1).map(normal))
-  t.throws(() => match(a1, [{ name: 'a', version: 'dev' }]), /^Error: Zero matches for/)
+  t.throws(() => match(a1, [{ name: 'a', version: 'dev' }]), /^NotFoundError/)
 
   const a2 = [{ name: 'a' }]
 
   t.same(match(a2, [{ name: 'a' }]), a2.map(normal))
-  t.throws(() => match(a2, [{ name: 'a', version: 'beta' }]), /^Error: Zero matches for/)
-  t.throws(() => match(a2, [{ name: 'a', version: 'dev' }]), /^Error: Zero matches for/)
+  t.throws(() => match(a2, [{ name: 'a', version: 'beta' }]), /^NotFoundError/)
+  t.throws(() => match(a2, [{ name: 'a', version: 'dev' }]), /^NotFoundError/)
 
   const a3 = [{ name: 'a', version: 'beta' }]
 
   t.same(match(a3, [{ name: 'a' }]), a3.map(normal))
   t.same(match(a3, [{ name: 'a', version: 'beta' }]), a3.map(normal))
-  t.throws(() => match(a3, [{ name: 'a', version: 'dev' }]), /^Error: Zero matches for/)
+  t.throws(() => match(a3, [{ name: 'a', version: 'dev' }]), /^NotFoundError/)
 
   t.end()
 })
@@ -391,12 +391,12 @@ test('match firefox versions', function (t) {
   ], 'exact match')
 
   t.throws(
-    () => match(a2, [{ name: 'firefox', version: '80' }]), /^Error: Zero matches for/,
+    () => match(a2, [{ name: 'firefox', version: '80' }]), /^NotFoundError/,
     'prerelease must be specified exactly'
   )
 
   t.throws(
-    () => match(a2, [{ name: 'firefox', version: '80.0' }]), /^Error: Zero matches for/,
+    () => match(a2, [{ name: 'firefox', version: '80.0' }]), /^NotFoundError/,
     'prerelease must be specified exactly'
   )
 
