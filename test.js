@@ -23,7 +23,7 @@ test('excludes browsers that need secure env vars', simulateSecureEnv(function (
 
 test('match sauce manifests against sauce manifests', simulateSecureEnv(function (t) {
   const res = match(sauce, sauce)
-  t.same(res, sauce.map(normal).sort(cmpName))
+  t.same(res, sauce.map(normal))
   t.end()
 }))
 
@@ -39,6 +39,14 @@ test('match by name', function (t) {
   t.same(match(a, [{ name: 'a' }]), [{ name: 'a', foo: true, options: {} }])
   t.same(match(a, [{ name: 'b' }]), [{ name: 'b', options: {} }])
   t.same(match(a, [{ name: 'B' }]), [{ name: 'b', options: {} }])
+  t.end()
+})
+
+test('match without name', function (t) {
+  const a = [{ name: 'a', foo: true }, { name: 'b' }]
+
+  t.same(match(a, [{ }]), [{ name: 'b', options: {} }])
+  t.same(match(a, [{ foo: true }]), [{ name: 'a', foo: true, options: {} }])
   t.end()
 })
 
@@ -135,6 +143,13 @@ test('match by version', function (t) {
   t.end()
 })
 
+test('defaults to latest stable', function (t) {
+  const a = [{ name: 'a', version: '1.0' }, { name: 'a', version: 'dev' }]
+  t.same(match(a, [{ name: 'a' }]), [{ name: 'a', version: '1.0', options: {} }])
+  t.same(match(a, [{ }]), [{ name: 'a', version: '1.0', options: {} }])
+  t.end()
+})
+
 test('matches version elements numerically', function (t) {
   const a = [{ name: 'a', version: '10.0' }, { name: 'a', version: '2.0' }]
 
@@ -204,6 +219,9 @@ test('match multiple versions', function (t) {
   t.same(match(a, [
     { name: 'a', version: ['1.0', '2.0'] }
   ]), a.slice(0, 2).map(normal))
+  t.same(match(a, [
+    { name: 'a', version: ['1.0', '3.0'] }
+  ]), [a[0], a[2]].map(normal))
   t.end()
 })
 
@@ -212,10 +230,6 @@ test('throws if a version is not found', function (t) {
 
   t.throws(
     () => match(a, [{ name: 'a', version: '2.0' }]),
-    /^Error: Zero matches for/
-  )
-  t.throws(
-    () => match(a, [{ name: 'a', version: ['1.0', '2.0'] }]),
     /^Error: Zero matches for/
   )
   t.end()
@@ -389,28 +403,6 @@ test('match firefox versions', function (t) {
   t.end()
 })
 
-test.skip('match array of platforms', function (t) {
-  const a = [{ name: 'a', platform: 'a' }, { name: 'a', platform: 'b' }]
-
-  t.same(match(a, [{ name: 'a', platform: ['a', 'b'] }]), a.map(normal))
-  t.same(match(a, [{ name: 'a', platform: ['a'] }]), a.slice(0, 1).map(normal))
-  t.same(match(a, [{ name: 'a', platform: ['b'] }]), a.slice(-1).map(normal))
-  t.end()
-})
-
-test.skip('match by array of nested custom properties', function (t) {
-  const a = [{ name: 'a', x: { y: 2 } }, { name: 'a', x: { z: 3 } }]
-  t.same(match(a, [{ name: 'a', x: [{ y: 2 }, { z: 3 }] }]), a.map(normal))
-  t.end()
-})
-
-test('sorts results by name', function (t) {
-  const a = [{ name: 'b' }, { name: 'a' }]
-
-  t.same(match(a, [{ name: 'b' }, { name: 'a' }]), a.reverse().map(normal))
-  t.end()
-})
-
 test('sorts results by version', function (t) {
   const a = [{ name: 'a', version: '2.0' }, { name: 'a', version: '1.0' }]
 
@@ -471,6 +463,22 @@ test('"ios_saf" 13.2 with custom simulator', simulateSecureEnv(function (t) {
   t.end()
 }))
 
+test('"iphone" (airtap < 4) is normalized to ios_saf', simulateSecureEnv(function (t) {
+  const res = match(sauce, [{ name: 'iphone' }])
+  t.is(res.length, 1)
+  t.is(res[0].name, 'ios_saf')
+  t.is(res[0].capabilities.appium.deviceName, 'iPhone Simulator')
+  t.end()
+}))
+
+test('"ipad" (airtap < 4) is normalized to ios_saf', simulateSecureEnv(function (t) {
+  const res = match(sauce, [{ name: 'ipad' }])
+  t.is(res.length, 1)
+  t.is(res[0].name, 'ios_saf')
+  t.is(res[0].capabilities.appium.deviceName, 'iPad Simulator')
+  t.end()
+}))
+
 function simulateSecureEnv (test, secure) {
   return function wrapped (t) {
     process.env.AIRTAP_IS_SECURE_ENV = String(secure !== false)
@@ -485,8 +493,4 @@ function resetEnv () {
 
 function normal (manifest) {
   return { ...manifest, options: {} }
-}
-
-function cmpName (a, b) {
-  return a.name.localeCompare(b.name)
 }

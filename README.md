@@ -39,10 +39,10 @@ Required, must be a string. Matched loosely using [`browser-names`](https://gith
 Defaults to "latest". Supported forms (compatible with Zuul & Airtap):
 
 - An exact or partial version ("6" matches "6.0").
-- A keyword, one of "oldest" (first version) or "latest" (last numeric version).
+- A keyword, one of "oldest" (first version) or "latest" (last stable version).
 - A range in the form of `<start>..<end>`, where `start` and `end` are either a version or a keyword. This will result in one or more matches.
-- A negative range in the form of `-<n>..latest`, for example `-1..latest` which means the last 2 numeric versions.
-- A prerelease version like "dev", "beta", "80.0a1". Such versions sort after numeric versions, so that `oldest..latest` excludes "dev" and `latest..dev` includes e.g. latest, "beta" and "dev".
+- A negative range in the form of `-<n>..latest`, for example `-1..latest` which means the last 2 stable versions.
+- A prerelease version like "dev", "beta", "80.0a1". Such versions sort after stable versions, so that `oldest..latest` excludes "dev" and `latest..dev` includes e.g. latest, "beta" and "dev".
 - An array of versions.
 
 If a manifest doesn't have a `version`, it behaves like a prerelease.

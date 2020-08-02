@@ -7,51 +7,26 @@ const deep = require('deep-dot')
 const names = require('browser-names')
 const isForkPr = require('is-fork-pr').isForkPr
 
-const defaults = { version: 'latest' }
 const prerelease = /[^\d.]/
 const numeric = /^\d+$/
 
 module.exports = matchAll
 
 function matchAll (available, wanted) {
-  wanted = wanted.map(withDefaults)
-  wanted.sort((a, b) => a.name.localeCompare(b.name))
-
-  explode(wanted)
-
   const matches = []
-  const groups = new Map()
+  const eqlOptions = { strict: true }
 
-  // Group by name for faster matching
-  for (const manifest of available) {
-    const name = manifest.name
+  for (let w of wanted) {
+    w = normalize(w)
 
-    if (groups.has(name)) {
-      groups.get(name).push(manifest)
-    } else {
-      groups.set(name, [manifest])
-    }
-  }
+    const explicit = new Set(['version'])
 
-  for (const w of wanted) {
-    const explicit = new Set()
-
-    // Match by name
-    let group = findName(groups, w.name) || []
-
-    // Lazily sort by version
-    if (!group.sorted) {
-      group.sort((a, b) => cmpVersion(a.version, b.version))
-      group.sorted = true
-    }
-
-    // Match by other properties
-    const skip = ['name', 'version']
-    group = group.filter(m => match(m, w, explicit, skip))
+    // Match by properties other than version
+    let group = available.filter(m => match(m, w, explicit))
 
     // Match by version
-    w.version = lower(w.version)
-    group = filterVersions(group, w.version)
+    group.sort((a, b) => cmpVersion(a.version, b.version))
+    group = filterVersions(group, w.version || 'latest')
 
     if (group.length === 0) {
       throw new Error('Zero matches for ' + JSON.stringify(w, null, 2))
@@ -65,7 +40,7 @@ function matchAll (available, wanted) {
       for (let j = i + 1; j < group.length; j++) {
         const b = group[j]
 
-        if (same(a, b, explicit)) {
+        if (same(a, b, explicit, eqlOptions)) {
           // Last manifest wins (for no particular reason)
           winner = b
           group.splice(j--, 1)
@@ -75,27 +50,15 @@ function matchAll (available, wanted) {
       // Don't merge options into the manifest yet, so that we can
       // perform fast deduplication by object identity (below). We
       // assume that `available` itself doesn't contain duplicates.
-      matches.push({ manifest: winner, options: w.options })
+      matches.push({ manifest: winner, options: w.options || {} })
     }
   }
 
-  consolidate(matches)
+  consolidate(matches, eqlOptions)
   return matches
 }
 
-function findName (groups, name) {
-  if (groups.has(name)) {
-    return groups.get(name)
-  }
-
-  for (const alias of names(name)) {
-    if (alias !== name && groups.has(alias)) {
-      return groups.get(alias)
-    }
-  }
-}
-
-function consolidate (matches) {
+function consolidate (matches, eqlOptions) {
   const insecure = insecureEnv()
 
   for (let i = 0; i < matches.length; i++) {
@@ -116,98 +79,73 @@ function consolidate (matches) {
     // Remove exact duplicates (same manifest, same options)
     for (let j = i + 1; j < matches.length; j++) {
       if (matches[j].manifest === manifest &&
-        deepEqual(matches[j].options, options, { strict: true })) {
+        deepEqual(matches[j].options, options, eqlOptions)) {
         matches.splice(j--, 1)
       }
     }
   }
 }
 
-function explode (manifests) {
-  for (let i = 0; i < manifests.length; i++) {
-    const manifest = manifests[i]
-
-    for (const k of ['version']) {
-      if (Array.isArray(manifest[k])) {
-        manifests.splice(i--, 1, ...manifest[k].map(v => ({ ...manifest, [k]: v })))
-        break
-      }
-    }
-  }
-}
-
-function withDefaults (manifest) {
-  manifest = { ...manifest }
-
-  for (const k in defaults) {
-    manifest[k] = manifest[k] || defaults[k]
-  }
-
-  if (typeof manifest.name !== 'string' || manifest.name === '') {
-    throw new TypeError('Manifest "name" is required')
-  }
-
-  manifest.name = lower(manifest.name)
-  manifest.options = manifest.options || {}
-
+function normalize (wanted) {
   // For airtap < 4 compatibility
   // TODO: consider adding a shorthand "device" property for ipad & iphone
-  if (manifest.name === 'iphone' || manifest.name === 'ipad') {
-    const device = manifest.name === 'iphone' ? 'iphone simulator' : 'ipad simulator'
-    const caps = manifest.capabilities = { ...manifest.capabilities }
+  if (wanted.name === 'iphone' || wanted.name === 'ipad') {
+    wanted = { ...wanted }
+
+    const device = wanted.name === 'iphone' ? 'iphone simulator' : 'ipad simulator'
+    const caps = wanted.capabilities = { ...wanted.capabilities }
     const appium = caps.appium = { ...caps.appium }
 
-    manifest.name = 'ios_saf'
+    wanted.name = 'ios_saf'
     appium.deviceName = appium.deviceName || device
   }
 
-  return manifest
+  return wanted
 }
 
-function lower (value) {
-  return value != null ? String(value).toLowerCase() : ''
-}
-
-function match (available, wanted, explicit, skip, key) {
-  if (Array.isArray(available)) {
-    return available.some(el => match(el, wanted, explicit, skip, key))
-  } else if (Array.isArray(wanted)) {
-    throw new Error('Array is not yet supported on ' + key)
-
-    // TODO: explode into multiple browsers, instead of this "oneof" behavior
-    // return wanted.some(el => match(available, el, explicit, skip, key))
-  } else if (isObject(wanted)) {
+function match (available, wanted, explicit, key) {
+  if (isObject(wanted)) {
     if (!isObject(available)) return false
 
     for (const k in wanted) {
       const fqk = key ? key + '.' + k : k
 
       if (!hasOwnProperty.call(wanted, k)) continue
-      if (fqk === 'options') continue
-      if (!match(available[k], wanted[k], explicit, skip, fqk)) return false
+      if (fqk === 'options' || fqk === 'version') continue
+
+      explicit.add(fqk)
+
+      if (!match(available[k], wanted[k], explicit, fqk)) return false
     }
 
     return true
-  } else if (wanted === 'any') {
-    return true
   } else {
-    explicit.add(key)
-    return skip.includes(key) || matchPrimitive(available, wanted)
+    return matchPrimitive(available, wanted, key)
   }
 }
 
-function matchPrimitive (available, wanted) {
+function matchPrimitive (available, wanted, key) {
   if (typeof wanted === 'string') {
-    wanted = lower(wanted)
-    available = lower(available)
+    wanted = wanted != null ? String(wanted).toLowerCase() : ''
+    available = available != null ? String(available).toLowerCase() : ''
   }
 
-  return available === wanted
+  if (available === wanted) {
+    return true
+  }
+
+  if (key === 'name') {
+    for (const alias of names(wanted)) {
+      if (available === alias) return true
+    }
+  }
+
+  return false
 }
 
-function same (a, b, explicit) {
+function same (a, b, explicit, eqlOptions) {
   for (const k of explicit) {
-    if (!deepEqual(deep(a, k), deep(b, k), { strict: true })) {
+    if (!deepEqual(deep(a, k), deep(b, k), eqlOptions)) {
       return false
     }
   }
@@ -222,21 +160,21 @@ function filterVersions (manifests, version) {
   }
 
   const test = range(version, manifests)
-  const result = []
-
-  for (const m of manifests) {
-    if (test(m.version)) {
-      result.push(m)
-    } else if (result.length) {
-      break
-    }
-  }
+  const result = manifests.filter(m => test(m.version))
 
   return result
 }
 
 // Assumes manifests are sorted by version.
 function range (version, manifests) {
+  if (Array.isArray(version)) {
+    const tests = version.map(v => range(v, manifests))
+
+    return function test (v) {
+      return tests.some(fn => fn(v))
+    }
+  }
+
   let gte
   let lte
 
