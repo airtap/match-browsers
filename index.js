@@ -25,7 +25,7 @@ function matchAll (available, wanted) {
 
     // Match by version
     group.sort((a, b) => cmpVersion(a.version, b.version))
-    group = filterVersions(group, w.version || 'latest')
+    group = filterVersions(group, w.version != null ? w.version : 'latest')
 
     if (group.length === 0) {
       throw new NotFoundError(original)
@@ -174,6 +174,12 @@ function range (version, manifests) {
     }
   }
 
+  if (typeof version === 'number') {
+    version = version.toString()
+  } else if (typeof version !== 'string') {
+    throw new InvalidVersionError(version)
+  }
+
   let gte
   let lte
 
@@ -274,6 +280,17 @@ function insecureEnv () {
 
 function isObject (o) {
   return typeof o === 'object' && o !== null && !Array.isArray(o)
+}
+
+class InvalidVersionError extends TypeError {
+  constructor (input) {
+    super('Version must be a string or number')
+
+    Object.defineProperty(this, 'name', { value: 'InvalidVersionError' })
+    Object.defineProperty(this, 'code', { value: 'ERR_INVALID_VERSION' })
+    Object.defineProperty(this, 'expected', { value: true })
+    Object.defineProperty(this, 'input', { value: input })
+  }
 }
 
 class NotFoundError extends Error {

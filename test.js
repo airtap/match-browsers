@@ -2,6 +2,8 @@
 
 const test = require('tape')
 const match = require('.')
+
+// Sourced from airtap-sauce-browsers
 const sauce = require('./sauce-fixture.json')
 const start = Date.now()
 
@@ -139,6 +141,40 @@ test('match by version', function (t) {
   ])
   t.throws(
     () => match(a, [{ name: 'a', version: '2.1' }]), /^NotFoundError/
+  )
+  t.end()
+})
+
+test('match by numeric version', function (t) {
+  const a = [{ name: 'a', version: '1.0' }, { name: 'a', version: '2.0' }]
+
+  t.same(match(a, [{ name: 'a', version: 1 }]), [
+    { name: 'a', version: '1.0', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: 2 }]), [
+    { name: 'a', version: '2.0', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: [1, 1] }]), [
+    { name: 'a', version: '1.0', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: [1, 2] }]), [
+    { name: 'a', version: '1.0', options: {} },
+    { name: 'a', version: '2.0', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: [1] }]), [
+    { name: 'a', version: '1.0', options: {} }
+  ])
+  t.same(match(a, [{ name: 'a', version: [2] }]), [
+    { name: 'a', version: '2.0', options: {} }
+  ])
+  t.throws(
+    () => match(a, [{ name: 'a', version: 0 }]), /^NotFoundError/
+  )
+  t.throws(
+    () => match(a, [{ name: 'a', version: [0] }]), /^NotFoundError/
+  )
+  t.throws(
+    () => match(a, [{ name: 'a', version: {} }]), /^InvalidVersionError/
   )
   t.end()
 })
