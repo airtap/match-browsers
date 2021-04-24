@@ -216,6 +216,11 @@ function latest (manifests, n) {
     if (!isPrerelease(manifests[i].version) && (!n-- || i === 0)) {
       return manifests[i].version
     }
+
+    // Skip same version(s)
+    while (i > 0 && cmpVersion(manifests[i - 1].version, manifests[i].version) === 0) {
+      i--
+    }
   }
 
   // All are prereleases, return the last

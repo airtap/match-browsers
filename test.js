@@ -353,6 +353,67 @@ test('match negative version range', function (t) {
   t.end()
 })
 
+test('match negative version range on duplicate versions', function (t) {
+  const a = [
+    { name: 'a', version: '60', platform: 'a' },
+    { name: 'a', version: '61', platform: 'b' },
+    { name: 'a', version: '62', platform: 'c' },
+    { name: 'a', version: '70', platform: 'a' },
+    { name: 'a', version: '70', platform: 'b' },
+    { name: 'a', version: '70', platform: 'c' },
+    { name: 'a', version: '70', platform: 'd' }
+  ]
+
+  t.same(match(a, [{ name: 'a', version: '-3' }]), [
+    { name: 'a', version: '60', platform: 'a', options: {} }
+  ])
+
+  t.same(match(a, [{ name: 'a', version: '-2' }]), [
+    { name: 'a', version: '61', platform: 'b', options: {} }
+  ])
+
+  t.same(match(a, [{ name: 'a', version: '-1' }]), [
+    { name: 'a', version: '62', platform: 'c', options: {} }
+  ])
+
+  t.same(match(a, [{ name: 'a', version: '-3..-3' }]), [
+    { name: 'a', version: '60', platform: 'a', options: {} }
+  ])
+
+  t.same(match(a, [{ name: 'a', version: '-3..-2' }]), [
+    { name: 'a', version: '60', platform: 'a', options: {} },
+    { name: 'a', version: '61', platform: 'b', options: {} }
+  ])
+
+  t.same(match(a, [{ name: 'a', version: '-3..-1' }]), [
+    { name: 'a', version: '60', platform: 'a', options: {} },
+    { name: 'a', version: '61', platform: 'b', options: {} },
+    { name: 'a', version: '62', platform: 'c', options: {} }
+  ])
+
+  for (const range of ['-3..latest', '-3..', 'oldest..', '..latest', 'oldest..latest']) {
+    t.same(match(a, [{ name: 'a', version: range }]), [
+      { name: 'a', version: '60', platform: 'a', options: {} },
+      { name: 'a', version: '61', platform: 'b', options: {} },
+      { name: 'a', version: '62', platform: 'c', options: {} },
+      { name: 'a', version: '70', platform: 'd', options: {} }
+    ])
+  }
+
+  // Manifests are filtered on other properties before versions are resolved
+  t.same(match(a, [{ name: 'a', version: '-1..latest', platform: 'a' }]), [
+    { name: 'a', version: '60', platform: 'a', options: {} },
+    { name: 'a', version: '70', platform: 'a', options: {} }
+  ])
+
+  t.same(match(a, [{ name: 'a', version: '-1..latest', platform: 'b' }]), [
+    { name: 'a', version: '61', platform: 'b', options: {} },
+    { name: 'a', version: '70', platform: 'b', options: {} }
+  ])
+
+  t.end()
+})
+
 test('match string versions', function (t) {
   const a = [
     { name: 'a', version: '1.0' },
