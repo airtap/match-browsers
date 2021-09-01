@@ -20,7 +20,7 @@
   "devDependencies": {
     "nyc": "^15.1.0",
     "standard": "^14.3.1",
-    "tape": "^4.13.0"
+    "tape": "^5.3.1"
   },
   "repository": {
     "type": "git",
